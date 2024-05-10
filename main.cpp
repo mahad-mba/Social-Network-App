@@ -1,9 +1,10 @@
 #include <iostream>
-#include<string>
+#include <fstream>
+#include <string> // Added for string usage
+
 using namespace std;
 
-class Date
-{
+class Date {
 private:
     int day;
     int month;
@@ -12,67 +13,132 @@ private:
     static Date Today;
 
 public:
-    Date()
-    {
-        day = 0;
-        month = 0;
-        year = 0;
-    }
-    Date(int _day, int _month, int _year)
-    {
-        day = _day;
-        month = _month;
-        year = _year;
-    }
+    Date() : day(0), month(0), year(0) {}
+    Date(int _day, int _month, int _year) : day(_day), month(_month), year(_year) {}
     ~Date() {}
 
-    void setDate(int _day, int _month, int _year)
-    {
+    void setDate(int _day, int _month, int _year) {
         day = _day;
         month = _month;
         year = _year;
     }
 
-    void setDay(int _day)
-    {
+    void setDay(int _day) {
         day = _day;
     }
-    int getDay()
-    {
+
+    int getDay() const {
         return day;
     }
 
-    void setMonth(int _month)
-    {
+    void setMonth(int _month) {
         month = _month;
     }
-    int getMonth()
-    {
+
+    int getMonth() const {
         return month;
     }
 
-    void setYear(int _year)
-    {
+    void setYear(int _year) {
         year = _year;
     }
-    int getYear()
-    {
+
+    int getYear() const {
         return year;
     }
 
-    void viewDate()
-    {
+    void viewDate() const {
         cout << "(" << day << "/" << month << "/" << year << ")";
     }
 
-    bool operator==(const Date &D)
-    {
-        if (year == D.year && month == D.month && day == D.day)
+    bool operator==(const Date &D) const {
+        return (year == D.year && month == D.month && day == D.day);
+    }
+
+    static Date getTodaysDate() {
+        return Today;
+    }
+
+    static void setTodaysDate(int dd, int mm, int yyyy) {
+        Today.day = dd;
+        Today.month = mm;
+        Today.year = yyyy;
+    }
+
+    static void setTodaysDate(const Date& d) {
+        Today = d;
+    }
+
+    void Print() const {
+        cout << "(" << day << "/" << month << "/" << year << ")";
+    }
+
+    friend istream& operator>>(istream& in, Date& d) {
+        in >> d.day >> d.month >> d.year;
+        in.ignore();
+
+        return in;
+    }
+
+    bool operator<=(const Date& D) const {
+        if (year < D.year)
             return true;
-        else
+        else if (year > D.year)
             return false;
+
+        if (month < D.month)
+            return true;
+        else if (month > D.month)
+            return false;
+
+        return day <= D.day;
+    }
+
+    bool operator<(const Date& D) const {
+        if (year < D.year)
+            return true;
+        else if (year > D.year)
+            return false;
+
+        if (month < D.month)
+            return true;
+        else if (month > D.month)
+            return false;
+
+        return day < D.day;
+    }
+
+    bool operator>=(const Date& D) const {
+        if (year > D.year)
+            return true;
+        if (year < D.year)
+            return false;
+
+        if (month > D.month)
+            return true;
+        else if (month < D.month)
+            return false;
+
+        return day >= D.day;
+    }
+
+    bool operator>(const Date& D) const {
+        if (year > D.year)
+            return true;
+        else if (year >= D.year)
+            return false;
+
+        if (month >= D.month)
+            return true;
+        else if (month > D.month)
+            return false;
+
+        return day > D.day;
     }
 };
+
+Date Date::Today = Date(1, 1, 1970);
+
 
 class Post;
 
