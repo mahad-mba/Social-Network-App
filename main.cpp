@@ -632,17 +632,50 @@ private:
     Account *author; // Aggregation
 
 public:
-    Comment(const string, const string, Account *);
-    Comment(ifstream &, char *postID, char *owner);
-    ~Comment();
-    void setAuthor(Account *acc);
-    const Account *getAuthor();
-    void Print();
+    Comment(const string &commentId, const string &body, Account *owner) : id(commentId), text(body), author(owner) {}
+    Comment(ifstream &ifile, const string &postID, const string &owner)
+    {
+        ifile >> id >> postID >> owner;
+        getline(ifile, text);
+    }
+
+    ~Comment()
+    {
+        if (author)
+            delete[] author;
+    }
+
+    void setAuthor(Account *acc)
+    {
+        author = acc;
+    }
+
+    const Account *getAuthor() const
+    {
+        return author;
+    }
+
+    void Print() const
+    {
+        author->PrintName();
+        cout << " wrote: ";
+        if (!text.empty())
+            cout << "\"" << text << "\"" << endl;
+    }
+    
+    const string &getID() const
+    {
+        return id;
+    }
+
+    const string &getText() const
+    {
+        return text;
+    }
 };
 
 class Activity
 {
-private:
     static const int noOfTypes = 4;
     static const int noOfSubtypes = 3;
 
@@ -679,6 +712,7 @@ private:
 protected:
     void PrintComments();
     void PrintText();
+    Account *owner;
 
 public:
     Post(const string, const string, int, int, int, Account *, int = -1, string = nullptr);
@@ -715,6 +749,12 @@ int main()
     cout << "Page Title: ";
     page1.PrintName();
     cout << endl;
+
+    Account *account = nullptr; // Replace with actual account instance
+    Comment comment1("comment1_id", "This is a comment", account);
+
+    cout << "Comment ID: " << comment1.getID() << endl;
+    cout << "Comment Text: " << comment1.getText() << endl;
 
     return 0;
 }
