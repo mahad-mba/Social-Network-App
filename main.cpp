@@ -326,17 +326,16 @@ public:
 
 class User : public Account
 {
-private:
     string firstName;
     string lastName;
     static const int maxFriends = 10;
     static const int maxNoOfLikedPages = 10;
 
-    Page *likedPages; // Aggregation
-    int noOfLikedPages;
-
-    User *friends; // Aggregation
+    User **friends; // Aggregation
     int noOfFriends;
+
+    Page **likedPages; // Aggregation
+    int noOfLikedPages;
 
 public:
     User(const string &accountId, const string &_firstName, const string &_lastName = "")
@@ -425,12 +424,16 @@ public:
         for (int i = 0; i < noOfFriends; i++)
         {
             if (friends[i] != secondUser)
+            {
                 continue;
+            }
 
             friends[i] = nullptr;
 
             for (i = i + 1; i < noOfFriends; i++)
+            {
                 friends[i - 1] = friends[i];
+            }
 
             noOfFriends--;
             friends[noOfFriends] = nullptr;
@@ -440,13 +443,17 @@ public:
     bool LikePage(Page *likedPage)
     {
         if (!likedPage)
+        {
             return false;
+        }
 
         if (!likedPages)
         {
             likedPages = new Page *[maxNoOfLikedPages];
             for (int i = 0; i < maxNoOfLikedPages; i++)
+            {
                 likedPages[i] = nullptr;
+            }
         }
 
         if (noOfLikedPages < maxNoOfLikedPages)
@@ -461,17 +468,23 @@ public:
     void UnlikePage(Page *pagePtr)
     {
         if (!pagePtr || !likedPages)
+        {
             return;
+        }
 
         for (int i = 0; i < noOfLikedPages; i++)
         {
             if (likedPages[i] != pagePtr)
+            {
                 continue;
+            }
 
             likedPages[i] = nullptr;
 
             for (i = i + 1; i < noOfLikedPages; i++)
+            {
                 likedPages[i - 1] = likedPages[i];
+            }
 
             noOfLikedPages--;
             likedPages[noOfLikedPages] = nullptr;
@@ -503,14 +516,18 @@ public:
         {
             Post *latestPost = friends[i]->GetLatestPost();
             if (latestPost)
+            {
                 latestPost->Print();
+            }
         }
 
         for (int i = 0; i < noOfLikedPages; i++)
         {
             Post *latestPost = likedPages[i]->GetLatestPost();
             if (latestPost)
+            {
                 latestPost->Print();
+            }
         }
     }
 
@@ -521,7 +538,9 @@ public:
              << '\n';
 
         for (int i = 0; i < noOfFriends; i++)
+        {
             friends[i]->PrintDetails();
+        }
     }
 
     void PrintLikedPagesList()
@@ -531,7 +550,9 @@ public:
              << '\n';
 
         for (int i = 0; i < noOfLikedPages; i++)
+        {
             likedPages[i]->PrintDetails();
+        }
     }
 };
 
@@ -545,14 +566,64 @@ private:
     Account **likers; // Aggregation
 
 public:
-    Page(const string, const string);
-    Page(ifstream &);
-    ~Page();
-    bool AddLiker(Account *);
-    void RemoveLiker(Account *);
-    void PrintName();
-    int getLikesCount();
+    Page(const string &accountId, const string &pageTitle) : Account(accountId), title(pageTitle), noOfLikers(0) {}
+    Page(ifstream &ifile) : Account(ifile), noOfLikers(0)
+    {
+        string temp;
+        ifile >> temp;
+        getline(ifile, title);
+    }
+    ~Page()
+    {
+        for (int i = 0; i < noOfLikers; ++i)
+        {
+            delete likers[i];
+        }
+    }
+
+    bool AddLiker(Account *accPtr)
+    {
+        if (!accPtr || noOfLikers >= maxLikers)
+        {
+            return false;
+        }
+
+        likers[noOfLikers++] = accPtr;
+        return true;
+    }
+
+    void RemoveLiker(Account *accPtr)
+    {
+        if (!accPtr)
+        {
+            return;
+        }
+
+        for (int i = 0; i < noOfLikers; i++)
+        {
+            if (likers[i] == accPtr)
+            {
+                for (int j = i; j < noOfLikers - 1; j++)
+                {
+                    likers[j] = likers[j + 1];
+                }
+                likers[--noOfLikers] = nullptr;
+                break;
+            }
+        }
+    }
+
+    void PrintName() const override
+    {
+        cout << title;
+    }
+
+    int getLikesCount() const
+    {
+        return noOfLikers;
+    }
 };
+
 class Comment
 {
 private:
@@ -571,6 +642,7 @@ public:
 
 class Activity
 {
+private:
     static const int noOfTypes = 4;
     static const int noOfSubtypes = 3;
 
@@ -607,7 +679,6 @@ private:
 protected:
     void PrintComments();
     void PrintText();
-    Account *owner; // Aggregation
 
 public:
     Post(const string, const string, int, int, int, Account *, int = -1, string = nullptr);
@@ -639,13 +710,11 @@ public:
 
 int main()
 {
-    User user1("user1", "John", "Doe");
-    User user2("user2", "Jane", "Doe");
+    Page page1("page1_id", "Page 1 Title");
 
-    user1.AddFriend(&user2);
-    user1.ViewTimeline();
-    user1.ViewHome();
-    user1.PrintFriendList();
-    user1.PrintLikedPagesList();
+    cout << "Page Title: ";
+    page1.PrintName();
+    cout << endl;
+
     return 0;
 }
