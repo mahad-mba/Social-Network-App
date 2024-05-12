@@ -564,6 +564,7 @@ public:
         }
     }
 };
+
 class Page : public Account
 {
 private:
@@ -643,9 +644,13 @@ public:
     Comment(const string &commentId, const string &body, Account *owner) : id(commentId), text(body), author(owner) {}
     Comment(ifstream &ifile, const string &postID, const string &owner)
     {
-        ifile >> id >> postID >> owner;
+        ifile >> id;
+        // Consume newline character after reading the id
+        ifile.ignore(numeric_limits<streamsize>::max(), '\n');
+        // Read the remaining text into the comment's text
         getline(ifile, text);
     }
+
     ~Comment()
     {
         if (author)
@@ -1062,24 +1067,36 @@ public:
         if (user)
         {
             for (int i = 0; i < noOfUsers; i++)
+            {
                 if (user[i])
+                {
                     DeleteUser(user[i]);
+                }
+            }
             delete[] user;
             user = nullptr;
         }
         if (page)
         {
             for (int i = 0; i < noOfPages; i++)
+            {
                 if (page[i])
+                {
                     DeletePage(page[i]);
+                }
+            }
             delete[] page;
             page = nullptr;
         }
         if (post)
         {
             for (int i = 0; i < noOfPosts; i++)
+            {
                 if (post[i])
+                {
                     delete post[i];
+                }
+            }
             delete[] post;
             post = nullptr;
         }
@@ -1680,10 +1697,228 @@ public:
 
         return false;
     }
+
+    void run()
+    {
+        Date newDate;
+
+        SocialMediaApp::ReadDataFromFile();
+
+        const int noOfCommands = 14;
+        // List of valid Commands - indexes synced with switch case below
+        string validCommands[noOfCommands] = {
+            "Set current system date",
+            "Set current user",
+            "View Home",
+            "Like Post",
+            "View Liked List",
+            "Post Comment",
+            "View Post",
+            "View Memories",
+            "Share Memory",
+            "View Timeline",
+            "View Friend List",
+            "View Liked Pages",
+            "View Page",
+            "Exit"};
+
+        // Commands to execute
+        string commands[] = {
+            "Set current system date", "Set current user", "View Friend List", "View Liked Pages", "View Home",
+            "View Timeline", "View Liked List", "Like Post", "View Liked List", "Post Comment",
+            "View Post", "Post Comment", "View Post", "View Memories", "Share Memory",
+            "View Timeline", "View Page", "Set current user", "View Home", "View Timeline",
+            "Exit"};
+
+        // First arg
+        string args[] = {
+            "15 11 2017", "u7", "", "", "",
+            "", "post5", "post5", "post5", "post4",
+            "post4", "post8", "post8", "", "post10",
+            "", "p1", "u11", "", "",
+            ""};
+
+        // Second arg
+        string texts[] = {
+            "", "", "", "", "",
+            "", "", "", "", "Good luck for your results",
+            "", "Thanks for the wishes", "", "", "Never thought I'd be a specialist in this field",
+            "", "", "", "", "",
+            ""};
+
+        bool exit = false;
+
+        int commandNo = 0;
+
+        while (!exit && commandNo < noOfCommands)
+        {
+            cout << "---------------------------------------------------------------------------------------------------------------" << endl;
+            cout << "Command:" << '\t' << commands[commandNo] << '\n';
+            cout << "---------------------------------------------------------------------------------------------------------------" << endl;
+
+            string inputID = args[commandNo];
+            string body = texts[commandNo];
+
+            int commandNumber = -1;
+            for (int i = 0; i < noOfCommands; i++)
+            {
+                if (commands[commandNo] == validCommands[i])
+                {
+                    commandNumber = i;
+                    break;
+                }
+            }
+
+            switch (commandNumber)
+            {
+            case 0: // Set current system date
+            {
+                cout << "Enter new system date (dd mm yyyy) : ";
+                cin >> newDate;
+                cout << inputID << '\n';
+                newDate = Date(15, 11, 2017);
+
+                Date::setTodaysDate(newDate);
+
+                cout << "System Date:" << '\t';
+                Date::getTodaysDate().Print();
+                cout << '\n';
+                break;
+            }
+
+            case 1: // Set current user
+            {
+                cout << "Enter user id (u<id>) : ";
+                cin >> inputID;
+                cin.ignore();
+
+                SocialMediaApp::SetCurrentUser(inputID);
+                break;
+            }
+
+            case 2: // View Home
+            {
+                SocialMediaApp::ViewHome();
+                break;
+            }
+
+            case 3: // Like Post
+            {
+                cout << "Enter post id (post<id>) : ";
+                cin >> inputID;
+                cin.ignore();
+
+                SocialMediaApp::LikePost(inputID);
+                break;
+            }
+
+            case 4: // View Liked List
+            {
+                cout << "Enter post id (post<id>) : ";
+                cin >> inputID;
+                cin.ignore();
+
+                SocialMediaApp::ViewPostLikedList(inputID);
+                break;
+            }
+
+            case 5: // Post Comment
+            {
+                cout << "Enter post id (post<id>): ";
+                cin >> inputID;
+
+                cout << "Enter Comment text: ";
+                cin.ignore();
+                getline(cin, body);
+
+                SocialMediaApp::PostComment(inputID, body);
+                break;
+            }
+
+            case 6: // View Post
+            {
+                cout << "Enter post id (post<id>) : ";
+                cin.ignore();
+                cin >> inputID;
+                cout << endl;
+
+                SocialMediaApp::ViewPost(inputID);
+                break;
+            }
+
+            case 7: // View Memories
+            {
+                SocialMediaApp::PrintMemories();
+                break;
+            }
+
+            case 8: // Share Memory
+            {
+                cout << "Enter post id (post<id>): ";
+                cin.ignore();
+                cin >> inputID;
+
+                cout << "Enter Post body: ";
+                cin.ignore();
+                getline(cin, body);
+
+                SocialMediaApp::ShareMemory(inputID, body);
+                break;
+            }
+
+            case 9: // View Timeline
+            {
+                SocialMediaApp::ViewTimeline();
+                break;
+            }
+
+            case 10: // View Friend List
+            {
+                SocialMediaApp::ViewFriendList();
+                break;
+            }
+
+            case 11: // View Liked Pages
+            {
+                SocialMediaApp::ViewLikedPagesList();
+                break;
+            }
+
+            case 12: // View Page
+            {
+                cout << "Enter page id (p<id>) : ";
+                cin.ignore();
+                cin >> inputID;
+
+                SocialMediaApp::ViewPage(inputID);
+                break;
+            }
+
+            case 13: // Exit
+            {
+                cout << "Exiting..." << endl;
+                exit = true;
+                break;
+            }
+
+            default:
+
+                cout << "Invalid Command" << endl;
+                break;
+
+                commandNo++;
+            }
+        }
+    }
 };
 
 SocialMediaApp *SocialMediaApp::instance = nullptr;
 
 int main()
 {
+    SocialMediaApp *app = SocialMediaApp::getInstance();
+    app->run();
+
+    delete app;
+    return 0;
 }
