@@ -954,27 +954,50 @@ public:
 
 class Memory : public Post
 {
+private:
     Post *origPost;
 
 public:
-    Memory(const string id, const string text, int dd, int mm, int yyyy, Account *author, Post *orig);
-    Memory(const string id, const string text, const Date &currDate, Account *author, Post *orig);
-    void Print(bool, bool);
+    Memory(const string &id, const string &text, int dd, int mm, int yyyy, Account *author, Post *orig)
+        : Post(id, text, dd, mm, yyyy, author), origPost(orig) {}
+
+    Memory(const string &id, const string &text, const Date &currDate, Account *author, Post *orig)
+        : Post(id, text, currDate, author), origPost(orig) {}
+
+    void Print(bool printDate = true, bool withComments = true)
+    {
+        cout << "~~~ ";
+        owner->PrintName();
+        cout << " shared a memory ~~~ ...";
+
+        if (printDate)
+        {
+            getShareDate().Print();
+        }
+        cout << endl;
+
+        PrintText();
+        cout << endl;
+
+        cout << '\t' << '\t' << '(' << Date::getTodaysDate().getYear() - origPost->getShareDate().getYear() << " Years Ago)" << '\n';
+        origPost->Print(true, false);
+
+        if (withComments)
+        {
+            PrintComments();
+        }
+    }
 };
 
 int main()
 {
-    Page page1("page1_id", "Page 1 Title");
+    Post *post = new Post("1", "This is a post", 12, 5, 2023, NULL);
 
-    cout << "Page Title: ";
-    page1.PrintName();
-    cout << endl;
+    Memory *memory = new Memory("2", "This is a memory", 10, 5, 2020, NULL, post);
+    memory->Print();
 
-    Account *account = nullptr;
-    Comment comment1("comment1_id", "This is a comment", account);
-
-    cout << "Comment ID: " << comment1.getID() << endl;
-    cout << "Comment Text: " << comment1.getText() << endl;
+    delete post;
+    delete memory;
 
     return 0;
 }
