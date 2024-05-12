@@ -679,21 +679,21 @@ class Activity
     static const int noOfTypes = 4;
     static const int noOfSubtypes = 3;
 
-    static const char *types[noOfTypes];
-    static const char *subtypes[noOfTypes][noOfSubtypes];
+    static const string types[noOfTypes];
+    static const string subtypes[noOfTypes][noOfSubtypes];
 
     int typeNo;
-    char *subtype;
+    string subtype;
 
 public:
-    const char *types[noOfTypes] =
+    const string types[noOfTypes] =
         {
             "feeling",
             "thinking about",
             "making",
             "celebrating"};
 
-    Activity(int type, const char *subtype) : typeNo(type - 1)
+    Activity(int type, const string &subtype) : typeNo(type - 1)
     {
         if (typeNo < 0 || typeNo >= noOfTypes)
         {
@@ -701,26 +701,12 @@ public:
             return;
         }
 
-        int temp_len = strlen(subtype);
-        if (temp_len > 0)
-        {
-            this->subtype = new char[temp_len + 1];
-            strcpy(this->subtype, subtype);
-        }
-        else
-        {
-            subtype = nullptr;
-        }
-    }
-    ~Activity()
-    {
-        if (subtype)
-            delete[] subtype;
+        this->subtype = subtype;
     }
 
     void ReadDataFromFile(ifstream &ifile)
     {
-        char temp[100];
+        string temp;
 
         ifile >> typeNo;
         ifile.ignore();
@@ -732,25 +718,24 @@ public:
             return;
         }
 
-        ifile.getline(temp, 100, '\n');
+        getline(ifile, temp);
 
-        int temp_len = strlen(temp);
-        if (temp_len > 0)
+        if (!temp.empty())
         {
-            subtype = new char[temp_len + 1];
-            strcpy(subtype, temp);
-        }
-        else
-        {
-            subtype = nullptr;
+            subtype = temp;
         }
     }
 
     void Print()
     {
-        if (typeNo != -1 && subtype)
+        if (typeNo != -1)
         {
-            cout << " is " << types[typeNo] << ' ' << subtype << endl;
+            cout << " is " << types[typeNo];
+            if (!subtype.empty())
+            {
+                cout << ' ' << subtype;
+            }
+            cout << endl;
         }
     }
 };
@@ -764,36 +749,207 @@ private:
     string text;
 
     int noOfLikers;
-    Account **likers; // Aggregation
+    Account *likers[maxLikers]; // Aggregation
 
-    Date shareDate; // composition
+    Date shareDate;
 
-    Comment **comments; // Aggregation
-    int noOfComments;
-
-    Activity *activity; // Aggregation
+    Comment *comments[maxComments]; // Aggregation
+    Activity *activity;             // Aggregation
 
 protected:
-    void PrintComments();
-    void PrintText();
+    void PrintComments() const
+    {
+        for (int i = 0; i < maxComments && comments[i] != nullptr; ++i)
+        {
+            comments[i]->Print();
+        }
+    }
+
+    void PrintText() const
+    {
+        cout << "\"" << text << "\"";
+    }
+
     Account *owner; // Aggregation
 
 public:
-    Post(const string, const string, int, int, int, Account *, int = -1, string = nullptr);
-    Post(const string, const string, const Date &, Account *, int = -1, string = nullptr);
-    Post(ifstream &, string, char **, int &);
-    void ReadDataFromFile(ifstream &, string, char **, int &);
-    virtual ~Post();
-    Date getShareDate();
-    bool AddLiker(Account *);
-    void RemoveLiker(Account *);
-    bool AddComment(Comment *);
-    void RemoveCommentsOfAccount(Account *);
-    virtual void Print(bool = false, bool = true);
-    void SetOwner(Account *);
-    const Account *getOwner();
-    const string getID();
-    void PrintLikedList();
+    Post(const string &_id, const string &_text, int dd, int mm, int yyyy, Account *author, int typeOfActivity = -1, const string &subtypeOfActivity = "") : id(_id), text(_text), shareDate(dd, mm, yyyy), noOfLikers(0), owner(author), activity(nullptr)
+    {
+        if (typeOfActivity != -1 && !subtypeOfActivity.empty())
+        {
+            activity = new Activity(typeOfActivity, subtypeOfActivity);
+        }
+    }
+
+    Post(const string &_id, const string &_text, const Date &_shareDate, Account *author, int typeOfActivity = -1, const string &subtypeOfActivity = "") : id(_id), text(_text), shareDate(_shareDate), noOfLikers(0), owner(author), activity(nullptr)
+    {
+        if (typeOfActivity != -1 && !subtypeOfActivity.empty())
+        {
+            activity = new Activity(typeOfActivity, subtypeOfActivity);
+        }
+    }
+
+    Post(ifstream &ifile, const string &ownerId, char **likersList, int &likesCount) : noOfLikers(0), owner(nullptr), activity(nullptr)
+    {
+        ReadDataFromFile(ifile, ownerId, likersList, likesCount);
+    }
+
+    ~Post()
+    {
+        delete activity;
+        for (int i = 0; i < maxComments; i++)
+        {
+            delete comments[i];
+        }
+    }
+
+    Date getShareDate() const
+    {
+        return shareDate;
+    }
+
+    bool AddLiker(Account *accPtr)
+    {
+        if (!accPtr)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < noOfLikers; i++)
+        {
+            if (likers[i] == accPtr)
+            {
+                return true;
+            }
+        }
+
+        if (noOfLikers < maxLikers)
+        {
+            likers[noOfLikers++] = accPtr;
+            return true;
+        }
+
+        return false;
+    }
+
+    void RemoveLiker(Account *accPtr)
+    {
+        for (int i = 0; i < noOfLikers; i++)
+        {
+            if (likers[i] == accPtr)
+            {
+                // Shift elements to fill the gap
+                for (int j = i; j < noOfLikers - 1; j++)
+                {
+                    likers[j] = likers[j + 1];
+                }
+                --noOfLikers;
+                break;
+            }
+        }
+    }
+
+    bool AddComment(Comment *cmt)
+    {
+        if (!cmt)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < maxComments; i++)
+        {
+            if (comments[i] == nullptr)
+            {
+                comments[i] = cmt;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void RemoveCommentsOfAccount(Account *accPtr)
+    {
+        for (int i = 0; i < maxComments; i++)
+        {
+            if (comments[i] && comments[i]->getAuthor() == accPtr)
+            {
+                delete comments[i];
+                comments[i] = nullptr;
+            }
+        }
+    }
+
+    void Print(bool printDate = false, bool withComments = true) const
+    {
+        cout << "--- ";
+        owner->PrintName();
+        cout << " shared ";
+        PrintText();
+        if (printDate)
+        {
+            cout << "...";
+            shareDate.Print();
+        }
+        cout << endl;
+
+        if (withComments)
+        {
+            PrintComments();
+        }
+    }
+
+    const Account *getOwner() const
+    {
+        return owner;
+    }
+
+    const string &getID() const
+    {
+        return id;
+    }
+
+    void SetOwner(Account *acc)
+    {
+        owner = acc;
+    }
+
+    void PrintLikedList() const
+    {
+        cout << "Post Liked By:" << endl;
+        for (int i = 0; i < noOfLikers; ++i)
+        {
+            likers[i]->PrintDetails();
+        }
+    }
+
+    void ReadDataFromFile(ifstream &ifile, const string &ownerId, char **likersList, int &likesCount)
+    {
+        ifile >> id;
+        shareDate.setDate(ifile.get(), ifile.get(), ifile.get());
+        ifile.ignore();
+        getline(ifile, text);
+
+        int type;
+        ifile >> type;
+        if (type == 2)
+        {
+            int activityType;
+            string activitySubtype;
+            ifile >> activityType;
+            ifile.ignore();
+            getline(ifile, activitySubtype);
+            activity = new Activity(activityType, activitySubtype);
+        }
+
+        owner = nullptr;
+        likesCount = 0;
+        while (likesCount < maxLikers && *likersList)
+        {
+            ifile >> *likersList;
+            ++likesCount;
+        }
+    }
 };
 
 class Memory : public Post
