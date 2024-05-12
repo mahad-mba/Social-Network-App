@@ -321,11 +321,11 @@ public:
         }
     }
 
-    virtual void PrintName() const = 0;
+    virtual void PrintName() const;
 };
-
 class User : public Account
 {
+protected:
     string firstName;
     string lastName;
     static const int maxFriends = 10;
@@ -341,7 +341,7 @@ public:
     User(const string &accountId, const string &_firstName, const string &_lastName = "")
         : Account(accountId), firstName(_firstName), lastName(_lastName), noOfFriends(0), noOfLikedPages(0), friends(nullptr), likedPages(nullptr) {}
 
-    User(ifstream &ifile, const string &_firstName, int &friendsCount, char **friends, int &likedPagesCount, char **likedPages)
+    User(ifstream &ifile, const string &_firstName, int &friendsCount, string **friends, int &likedPagesCount, string **likedPages)
         : Account(ifile), firstName(_firstName), noOfFriends(0), noOfLikedPages(0), friends(nullptr), likedPages(nullptr)
     {
         ReadDataFromFile(ifile, friends, friendsCount, likedPages, likedPagesCount);
@@ -355,7 +355,18 @@ public:
             delete[] friends;
     }
 
-    void ReadDataFromFile(ifstream &ifile, char **friends, int &friendsCount, char **likedPages, int &likedPagesCount)
+    static int getMaxFriends()
+    {
+        return maxFriends;
+    }
+
+    // Static method to get the maximum number of liked pages
+    static int getMaxNoOfLikedPages()
+    {
+        return maxNoOfLikedPages;
+    }
+
+    void ReadDataFromFile(ifstream &ifile, string **friends, int &friendsCount, string **likedPages, int &likedPagesCount)
     {
         string temp;
         while (friendsCount < maxFriends)
@@ -367,8 +378,7 @@ public:
             }
             else
             {
-                friends[friendsCount] = new char[temp.length() + 1];
-                strcpy(friends[friendsCount], temp.c_str());
+                friends[friendsCount] = new string(temp);
                 friendsCount++;
             }
         }
@@ -382,8 +392,7 @@ public:
             }
             else
             {
-                likedPages[likedPagesCount] = new char[temp.length() + 1];
-                strcpy(likedPages[likedPagesCount], temp.c_str());
+                likedPages[likedPagesCount] = new string(temp);
                 likedPagesCount++;
             }
         }
@@ -555,7 +564,6 @@ public:
         }
     }
 };
-
 class Page : public Account
 {
 private:
@@ -989,15 +997,693 @@ public:
     }
 };
 
+class SocialMediaApp
+{
+private:
+    static SocialMediaApp *instance;
+    const int maxFriends = 10;
+    const int maxLikedPages = 10;
+    const int maxIDLength = 10;
+    string userFile;
+    string pageFile;
+    string postFile;
+    string commentFile;
+
+    User *currentUser; // Aggregation
+    int noOfUsers;
+    int noOfPages;
+    int noOfPosts;
+    int totalNoOfComments;
+
+    User **user; // Aggregation
+    Page **page; // Aggregation
+    Post **post; // Aggregation
+
+    void ReadUsersFromFile(ifstream &, string ***, int *, string ***, int *);
+    void ReadPagesFromFile(ifstream &);
+    void ReadPostsFromFile(ifstream &);
+    void ReadCommentsFromFile(ifstream &);
+
+    void SetupUsersFriends(string ***, int *);
+    void SetupUsersLikedPages(string ***, int *);
+    User *SearchUserByID(const string &);
+    Page *SearchPageByID(const string &);
+    Post *SearchPostByID(const string &);
+
+    void DeleteUser(User *&);
+    void DeletePage(Page *&);
+    void DeletePostsOfAuthor(Account *);
+
+    SocialMediaApp();
+
+public:
+    SocialMediaApp(const SocialMediaApp &) = delete;
+
+    SocialMediaApp()
+    {
+        currentUser = nullptr;
+
+        userFile = "Users.txt";
+        pageFile = "Pages.txt";
+        postFile = "Posts.txt";
+        commentFile = "Comments.txt";
+
+        user = nullptr;
+        page = nullptr;
+        post = nullptr;
+
+        noOfUsers = 0;
+        noOfPages = 0;
+        noOfPosts = 0;
+        totalNoOfComments = 0;
+    }
+    ~SocialMediaApp()
+    {
+        if (user)
+        {
+            for (int i = 0; i < noOfUsers; i++)
+                if (user[i])
+                    DeleteUser(user[i]);
+            delete[] user;
+            user = nullptr;
+        }
+        if (page)
+        {
+            for (int i = 0; i < noOfPages; i++)
+                if (page[i])
+                    DeletePage(page[i]);
+            delete[] page;
+            page = nullptr;
+        }
+        if (post)
+        {
+            for (int i = 0; i < noOfPosts; i++)
+                if (post[i])
+                    delete post[i];
+            delete[] post;
+            post = nullptr;
+        }
+    }
+
+    static SocialMediaApp *getInstance()
+    {
+        if (!instance)
+        {
+            instance = new SocialMediaApp;
+        }
+        return instance;
+    }
+
+    void ReadDataFromFile()
+    {
+        ifstream ifile;
+        ifile.open(userFile);
+        if (!ifile.is_open())
+        {
+            return;
+        }
+
+        ifile >> noOfUsers;
+        user = new User *[noOfUsers];
+
+        string ***userFriends = new string **[noOfUsers];
+        int *noOfFriends = new int[noOfUsers];
+
+        string ***userLikedPages = new string **[noOfUsers];
+        int *noOfLikedPages = new int[noOfUsers];
+
+        for (int i = 0; i < noOfUsers; i++)
+        {
+            userFriends[i] = new string *[maxFriends];
+            for (int j = 0; j < maxFriends; j++)
+            {
+                userFriends[i][j] = new string[maxIDLength];
+            }
+
+            userLikedPages[i] = new string *[maxLikedPages];
+            for (int j = 0; j < maxLikedPages; j++)
+            {
+                userLikedPages[i][j] = new string[maxIDLength];
+            }
+        }
+
+        ReadUsersFromFile(ifile, userFriends, noOfFriends, userLikedPages, noOfLikedPages);
+        ifile.close();
+
+        ifile.open(pageFile);
+        if (ifile.is_open())
+        {
+            ifile >> noOfPages;
+            page = new Page *[noOfPages];
+            ReadPagesFromFile(ifile);
+            ifile.close();
+        }
+        SetupUsersFriends(userFriends, noOfFriends);
+        SetupUsersLikedPages(userLikedPages, noOfLikedPages);
+
+        bool deleteUserFriends = false, deleteUserLikedPages = false;
+
+        if (userFriends)
+            deleteUserFriends = true;
+
+        if (userLikedPages)
+            deleteUserLikedPages = true;
+
+        for (int i = 0; i < noOfUsers; i++)
+        {
+            if (userFriends[i] && deleteUserFriends)
+            {
+                for (int j = 0; j < maxFriends; j++)
+                {
+                    if (userFriends[i][j])
+                    {
+                        delete[] userFriends[i][j];
+                    }
+                    delete[] userFriends[i];
+                }
+            }
+            if (userLikedPages[i] && deleteUserLikedPages)
+            {
+                for (int j = 0; j < maxLikedPages; j++)
+                {
+                    if (userLikedPages[i][j])
+                    {
+                    }
+                    delete[] userLikedPages[i][j];
+                }
+
+                delete[] userLikedPages[i];
+            }
+        }
+
+        if (deleteUserFriends)
+            delete[] userFriends;
+        delete[] noOfFriends;
+        userFriends = nullptr;
+        noOfFriends = nullptr;
+
+        if (deleteUserLikedPages)
+            delete[] userLikedPages;
+        delete[] noOfLikedPages;
+        userLikedPages = nullptr;
+        noOfLikedPages = nullptr;
+
+        ifile.open(postFile);
+
+        if (ifile.is_open())
+        {
+            ifile >> noOfPosts;
+
+            post = new Post *[noOfPosts];
+
+            ReadPostsFromFile(ifile);
+
+            ifile.close();
+        }
+
+        ifile.open(commentFile);
+
+        if (ifile.is_open())
+        {
+            ifile >> totalNoOfComments;
+
+            ReadCommentsFromFile(ifile);
+        }
+    }
+    void ReadUsersFromFile(ifstream &ifile, string ***userFriends, int *friendsCount, string ***userLikedPages, int *likedPagesCount)
+    {
+        for (int i = 0; i < noOfUsers; i++)
+        {
+            // Initialize the arrays inside the function
+            userFriends[i] = new string *[User::getMaxFriends()];
+            userLikedPages[i] = new string *[User::getMaxNoOfLikedPages()];
+
+            // Initialize friendsCount and likedPagesCount
+            friendsCount[i] = 0;
+            likedPagesCount[i] = 0;
+
+            // Read data into the arrays
+            string firstName;
+            user[i] = new User(ifile, firstName, friendsCount[i], userFriends[i], likedPagesCount[i], userLikedPages[i]);
+        }
+    }
+    void ReadPagesFromFile(ifstream &ifile)
+    {
+        for (int i = 0; i < noOfPages; i++)
+        {
+            page[i] = new Page(ifile);
+        }
+    }
+    void ReadPostsFromFile(ifstream &ifile)
+    {
+        ifile.ignore();
+        ifile.ignore(100, '\n');
+
+        char ***likersList = new char **[noOfPosts]; // Changed noOfUsers to noOfPosts
+        for (int i = 0; i < noOfPosts; i++)          // Changed noOfUsers to noOfPosts
+        {
+            likersList[i] = new char *[User::getMaxNoOfLikedPages()]; // Allocate memory for likersList[i]
+            for (int j = 0; j < User::getMaxNoOfLikedPages(); j++)
+            {
+                likersList[i][j] = new char[maxIDLength]; // Allocate memory for likersList[i][j]
+            }
+        }
+
+        for (int i = 0; i < noOfPosts; i++) // Changed noOfUsers to noOfPosts
+        {
+            int noOfLikes = 0;
+            string ownerId;
+
+            post[i] = new Post(ifile, ownerId, likersList[i], noOfLikes);
+
+            Account *owner = (ownerId[0] == 'u') ? (Account *)SearchUserByID(ownerId) : (Account *)SearchPageByID(ownerId);
+
+            if (owner)
+            {
+                owner->AddPost(post[i]);
+                post[i]->SetOwner(owner);
+
+                for (int j = 0; j < noOfLikes; j++)
+                {
+                    Account *liker = (likersList[i][j][0] == 'u') ? (Account *)SearchUserByID(likersList[i][j]) : (Account *)SearchPageByID(likersList[i][j]);
+                    if (liker)
+                        post[i]->AddLiker(liker);
+                }
+            }
+
+            ifile.ignore();
+            ifile.ignore(100, '\n');
+        }
+
+        // Deallocate memory for likersList
+        if (likersList)
+        {
+            for (int i = 0; i < noOfPosts; i++) // Changed noOfUsers to noOfPosts
+            {
+                if (likersList[i])
+                {
+                    for (int j = 0; j < User::getMaxNoOfLikedPages(); j++)
+                    {
+                        delete[] likersList[i][j];
+                    }
+                    delete[] likersList[i];
+                }
+            }
+            delete[] likersList;
+        }
+    }
+    void ReadCommentsFromFile(ifstream &ifile)
+    {
+        for (int i = 0; i < totalNoOfComments; i++)
+        {
+            string ownerID, postID;
+
+            Account *owner = nullptr;
+            Post *post = nullptr;
+            Comment *temp = new Comment(ifile, postID, ownerID);
+            if (!ownerID.empty())
+            {
+                owner = (ownerID[0] == 'p') ? (Account *)SearchPageByID(ownerID) : SearchUserByID(ownerID);
+
+                post = SearchPostByID(postID);
+                if (post)
+                {
+                    post->AddComment(temp);
+                    if (owner)
+                        temp->setAuthor(owner);
+                    break;
+                }
+                else
+                {
+                    delete temp;
+                    temp = nullptr;
+                }
+            }
+        }
+    }
+    void SetupUsersFriends(string ***userFriends, int *friendsCount)
+    {
+        for (int i = 0; i < noOfUsers; i++)
+        {
+            for (int j = 0; j < friendsCount[i]; j++)
+            {
+                User *newFriend = SearchUserByID(*userFriends[i][j]);
+                if (newFriend)
+                {
+                    user[i]->AddFriend(newFriend);
+                }
+            }
+        }
+    }
+    void SetupUsersLikedPages(string ***userLikedPages, int *likedPagesCount)
+    {
+        for (int i = 0; i < noOfUsers; i++)
+        {
+            for (int j = 0; j < likedPagesCount[i]; j++)
+            {
+                Page *likedPage = SearchPageByID(*userLikedPages[i][j]);
+                if (likedPage)
+                {
+                    user[i]->LikePage(likedPage);
+                    likedPage->AddLiker(user[i]);
+                }
+            }
+        }
+    }
+    User *SearchUserByID(const string &userID)
+    {
+        string idPrefix = "u";
+
+        if (userID.compare(0, idPrefix.size(), idPrefix) != 0)
+        {
+            return nullptr;
+        }
+
+        for (int i = 0; i < noOfUsers; i++)
+        {
+            if (user[i] && user[i]->getAccountID() == userID)
+            {
+                return user[i];
+            }
+        }
+
+        return nullptr;
+    }
+    Page *SearchPageByID(const string &pageID)
+    {
+        string idPrefix = "page";
+        if (pageID.compare(0, idPrefix.size(), idPrefix) != 0)
+        {
+            return nullptr;
+        }
+
+        for (int i = 0; i < noOfPages; i++)
+        {
+            if (page[i] && page[i]->getAccountID() == pageID)
+            {
+                return page[i];
+            }
+        }
+
+        return nullptr;
+    }
+    Post *SearchPostByID(const string &postID)
+    {
+        string idPrefix = "post";
+
+        if (postID.compare(0, idPrefix.size(), idPrefix) != 0)
+        {
+            return nullptr;
+        }
+
+        for (int i = 0; i < noOfPosts; i++)
+        {
+            if (post[i] && post[i]->getID() == postID)
+            {
+                return post[i];
+            }
+        }
+        return nullptr;
+    }
+
+    void DeleteUser(User *&userPtr)
+    {
+        if (!userPtr)
+            return;
+        DeletePostsOfAuthor(userPtr);
+
+        if (user)
+        {
+            for (int i = 0; i < noOfUsers; i++)
+                if (user[i])
+                    user[i]->RemoveFriend(userPtr);
+        }
+
+        if (page)
+        {
+            for (int i = 0; i < noOfPages; i++)
+                if (page[i])
+                    page[i]->RemoveLiker(userPtr);
+        }
+
+        if (post)
+        {
+            for (int i = 0; i < noOfPosts; i++)
+                if (post[i])
+                    post[i]->RemoveCommentsOfAccount(userPtr);
+        }
+
+        delete userPtr;
+        userPtr = nullptr;
+    }
+
+    void DeletePage(Page *&pagePtr)
+    {
+        if (!pagePtr)
+            return;
+        DeletePostsOfAuthor(pagePtr);
+
+        if (user)
+        {
+            for (int i = 0; i < noOfPages; i++)
+            {
+                if (user[i])
+                {
+                    user[i]->UnlikePage(pagePtr);
+                }
+            }
+        }
+
+        if (page)
+        {
+            for (int i = 0; i < noOfPages; i++)
+            {
+                if (page[i])
+                {
+                    page[i]->RemoveLiker(pagePtr);
+                }
+            }
+        }
+
+        if (post)
+        {
+            for (int i = 0; i < noOfPosts; i++)
+            {
+                if (post[i])
+                {
+                    post[i]->RemoveCommentsOfAccount(pagePtr);
+                }
+            }
+        }
+
+        delete pagePtr;
+        pagePtr = nullptr;
+    }
+
+    void DeletePostsOfAuthor(Account *accPtr)
+    {
+        if (post)
+        {
+            for (int i = 0; i < noOfPosts; i++)
+            {
+                if (post[i] && post[i]->getOwner() == accPtr)
+                {
+                    delete post[i];
+                    post[i] = nullptr;
+
+                    for (i = i + 1; i < noOfPosts; i++)
+                    {
+                        post[i - 1] = post[i];
+                    }
+
+                    noOfPosts--;
+                    post[noOfPosts] = nullptr;
+                }
+            }
+        }
+    }
+
+    void SetCurrentUser(const string &userID)
+    {
+        string idPrefix = "u";
+
+        if (userID.compare(0, idPrefix.size(), idPrefix) != 0)
+        {
+            return;
+        }
+
+        currentUser = SearchUserByID(userID);
+        if (currentUser)
+        {
+            currentUser->PrintName();
+            cout << " successfully set as Current User." << endl;
+        }
+    }
+
+    void ViewHome()
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return;
+        }
+        currentUser->ViewHome();
+    }
+
+    void ViewTimeline()
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return;
+        }
+        currentUser->ViewTimeline();
+    }
+
+    void ViewPostLikedList(const string &postID)
+    {
+        Post *post = SearchPostByID(postID);
+        if (!post)
+        {
+            cout << "Post not found!" << endl;
+            return;
+        }
+        post->PrintLikedList();
+    }
+
+    bool LikePost(const string &postID)
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return false;
+        }
+
+        Post *post = SearchPostByID(postID);
+        if (post)
+        {
+            return post->AddLiker(currentUser);
+        }
+        return false;
+    }
+
+    bool PostComment(const string &postID, const string &text)
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return false;
+        }
+
+        Post *post = SearchPostByID(postID);
+        if (post)
+        {
+            Comment *newComment = new Comment(('c' + to_string(totalNoOfComments++)).c_str(), text, currentUser);
+            bool status = post->AddComment(newComment);
+
+            if (status)
+                return true;
+
+            delete newComment;
+            return false;
+        }
+        return false;
+    }
+
+    void ViewPost(const string &postID)
+    {
+        Post *post = SearchPostByID(postID);
+        if (post)
+        {
+            post->Print(true);
+        }
+    }
+
+    void ViewFriendList()
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return;
+        }
+        currentUser->PrintFriendList();
+    }
+
+    void ViewLikedPagesList()
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return;
+        }
+        currentUser->PrintLikedPagesList();
+    }
+
+    void ViewPage(const string &pageID)
+    {
+        Page *page = SearchPageByID(pageID);
+        if (page)
+        {
+            page->ViewTimeline();
+        }
+    }
+
+    void PrintMemories()
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return;
+        }
+
+        cout << '\n'
+             << "We hope you enjoy looking back and sharing your memories on our app,";
+        cout << "from the most recent to those long ago." << '\n'
+             << '\n';
+
+        currentUser->PrintMemories();
+    }
+
+    bool ShareMemory(const string &postID, const string &body)
+    {
+        if (!currentUser)
+        {
+            cout << "Please set the current user first" << endl;
+            return false;
+        }
+
+        Post *post = SearchPostByID(postID);
+
+        if (post && post->getOwner() == currentUser)
+        {
+            Memory *newPost = new Memory(("post" + to_string(noOfPosts + 1)).c_str(), body, Date::getTodaysDate(), currentUser, post);
+            bool status = currentUser->AddPost(newPost);
+
+            if (!status)
+            {
+                delete newPost;
+                return false;
+            }
+
+            Post **newPostlist = new Post *[noOfPosts + 1];
+
+            for (int i = 0; i < noOfPosts; i++)
+            {
+                newPostlist[i] = this->post[i];
+            }
+            newPostlist[noOfPosts++] = newPost;
+
+            delete[] this->post;
+            this->post = newPostlist;
+            return true;
+        }
+
+        return false;
+    }
+};
+
+SocialMediaApp *SocialMediaApp::instance = nullptr;
+
 int main()
 {
-    Post *post = new Post("1", "This is a post", 12, 5, 2023, NULL);
-
-    Memory *memory = new Memory("2", "This is a memory", 10, 5, 2020, NULL, post);
-    memory->Print();
-
-    delete post;
-    delete memory;
-
-    return 0;
 }
