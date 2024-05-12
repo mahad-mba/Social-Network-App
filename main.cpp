@@ -638,7 +638,6 @@ public:
         ifile >> id >> postID >> owner;
         getline(ifile, text);
     }
-
     ~Comment()
     {
         if (author)
@@ -649,7 +648,6 @@ public:
     {
         author = acc;
     }
-
     const Account *getAuthor() const
     {
         return author;
@@ -660,9 +658,11 @@ public:
         author->PrintName();
         cout << " wrote: ";
         if (!text.empty())
+        {
             cout << "\"" << text << "\"" << endl;
+        }
     }
-    
+
     const string &getID() const
     {
         return id;
@@ -681,14 +681,78 @@ class Activity
 
     static const char *types[noOfTypes];
     static const char *subtypes[noOfTypes][noOfSubtypes];
+
     int typeNo;
     char *subtype;
 
 public:
-    Activity(int, const string);
-    Activity(ifstream &);
-    ~Activity();
-    void Print();
+    const char *types[noOfTypes] =
+        {
+            "feeling",
+            "thinking about",
+            "making",
+            "celebrating"};
+
+    Activity(int type, const char *subtype) : typeNo(type - 1)
+    {
+        if (typeNo < 0 || typeNo >= noOfTypes)
+        {
+            typeNo = -1;
+            return;
+        }
+
+        int temp_len = strlen(subtype);
+        if (temp_len > 0)
+        {
+            this->subtype = new char[temp_len + 1];
+            strcpy(this->subtype, subtype);
+        }
+        else
+        {
+            subtype = nullptr;
+        }
+    }
+    ~Activity()
+    {
+        if (subtype)
+            delete[] subtype;
+    }
+
+    void ReadDataFromFile(ifstream &ifile)
+    {
+        char temp[100];
+
+        ifile >> typeNo;
+        ifile.ignore();
+        typeNo -= 1;
+
+        if (typeNo < 0 || typeNo >= noOfTypes)
+        {
+            typeNo = -1;
+            return;
+        }
+
+        ifile.getline(temp, 100, '\n');
+
+        int temp_len = strlen(temp);
+        if (temp_len > 0)
+        {
+            subtype = new char[temp_len + 1];
+            strcpy(subtype, temp);
+        }
+        else
+        {
+            subtype = nullptr;
+        }
+    }
+
+    void Print()
+    {
+        if (typeNo != -1 && subtype)
+        {
+            cout << " is " << types[typeNo] << ' ' << subtype << endl;
+        }
+    }
 };
 
 class Post
@@ -712,7 +776,7 @@ private:
 protected:
     void PrintComments();
     void PrintText();
-    Account *owner;
+    Account *owner; // Aggregation
 
 public:
     Post(const string, const string, int, int, int, Account *, int = -1, string = nullptr);
@@ -750,7 +814,7 @@ int main()
     page1.PrintName();
     cout << endl;
 
-    Account *account = nullptr; // Replace with actual account instance
+    Account *account = nullptr;
     Comment comment1("comment1_id", "This is a comment", account);
 
     cout << "Comment ID: " << comment1.getID() << endl;
