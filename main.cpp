@@ -1,8 +1,18 @@
 #include <iostream>
 #include <fstream>
+#include <limits>
 #include <string>
-
 using namespace std;
+
+class Date; // Forward Declaration
+class Page;
+class Post;
+class Account;
+class User;
+class Comment;
+class Activity;
+class Memory;
+class SocialMediaApp;
 
 class Date
 {
@@ -186,16 +196,14 @@ public:
 
 Date Date::Today = Date(1, 1, 1970);
 
-class Post;
 class Account
 {
-protected:
+public:
     string id;
     const int maxPosts = 10;
     Post **timeline; // Aggregation
     int noOfPosts;
 
-public:
     Account(const string &accountId) : id(accountId), noOfPosts(0), timeline(nullptr) {}
     Account(ifstream &ifile) : noOfPosts(0), timeline(nullptr)
     {
@@ -207,9 +215,9 @@ public:
     {
         if (timeline)
         {
-            for (int i = 0; i < noOfPosts; ++i)
+            for (int i = 0; i < noOfPosts; i++)
             {
-                delete timeline[i];
+                delete timeline;
             }
             delete[] timeline;
         }
@@ -234,7 +242,7 @@ public:
         int index = 0;
         for (index = 0; index < noOfPosts; index++)
         {
-            if (timeline[index]->getShareDate() > p->getShareDate())
+            if (p->getShareDate() < timeline[index]->getShareDate())
             {
                 break;
             }
@@ -323,6 +331,7 @@ public:
 
     virtual void PrintName() const;
 };
+
 class User : public Account
 {
 protected:
@@ -344,9 +353,8 @@ public:
     User(ifstream &ifile, const string &_firstName, int &friendsCount, string **friends, int &likedPagesCount, string **likedPages)
         : Account(ifile), firstName(_firstName), noOfFriends(0), noOfLikedPages(0), friends(nullptr), likedPages(nullptr)
     {
-        ReadDataFromFile(ifile, friends, friendsCount, likedPages, likedPagesCount);
+        ReadUsersFromFile(ifile, friends, friendsCount, likedPages, likedPagesCount);
     }
-
     ~User()
     {
         if (likedPages)
@@ -360,14 +368,20 @@ public:
         return maxFriends;
     }
 
-    // Static method to get the maximum number of liked pages
     static int getMaxNoOfLikedPages()
     {
         return maxNoOfLikedPages;
     }
 
-    void ReadDataFromFile(ifstream &ifile, string **friends, int &friendsCount, string **likedPages, int &likedPagesCount)
+    void ReadUsersFromFile(ifstream &ifile, string **friends, int &friendsCount, string **likedPages, int &likedPagesCount)
     {
+        ifstream ifile("User.txt");
+        if (!ifile)
+        {
+            cout << "Error opening file.\n";
+            return;
+        }
+
         string temp;
         while (friendsCount < maxFriends)
         {
@@ -521,9 +535,10 @@ public:
         cout << " - Home Page" << endl
              << endl;
 
+        Post *latestPost;
         for (int i = 0; i < noOfFriends; i++)
         {
-            Post *latestPost = friends[i]->GetLatestPost();
+            latestPost = friends[i]->GetLatestPost();
             if (latestPost)
             {
                 latestPost->Print();
@@ -532,7 +547,7 @@ public:
 
         for (int i = 0; i < noOfLikedPages; i++)
         {
-            Post *latestPost = likedPages[i]->GetLatestPost();
+            latestPost = likedPages[i]->GetLatestPost();
             if (latestPost)
             {
                 latestPost->Print();
@@ -578,13 +593,20 @@ public:
     Page(const string &accountId, const string &pageTitle) : Account(accountId), title(pageTitle), noOfLikers(0) {}
     Page(ifstream &ifile) : Account(ifile), noOfLikers(0)
     {
+        ifstream ifile("Pages.txt");
+        if (!ifile)
+        {
+            cout << "Error opening file.\n";
+            return;
+        }
+
         string temp;
         ifile >> temp;
         getline(ifile, title);
     }
     ~Page()
     {
-        for (int i = 0; i < noOfLikers; ++i)
+        for (int i = 0; i < noOfLikers; i++)
         {
             delete likers[i];
         }
@@ -644,6 +666,12 @@ public:
     Comment(const string &commentId, const string &body, Account *owner) : id(commentId), text(body), author(owner) {}
     Comment(ifstream &ifile, const string &postID, const string &owner)
     {
+        ifstream ifile("Comments.txt");
+        if (!ifile)
+        {
+            cout << "Error opening file.\n";
+            return;
+        }
         ifile >> id;
         // Consume newline character after reading the id
         ifile.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -699,7 +727,7 @@ class Activity
     string subtype;
 
 public:
-    const string types[noOfTypes] =
+    const string Types[noOfTypes] =
         {
             "feeling",
             "thinking about",
@@ -764,25 +792,12 @@ private:
     int noOfLikers;
     Account *likers[maxLikers]; // Aggregation
 
-    Date shareDate;
+    Date shareDate; // Composition
 
     Comment *comments[maxComments]; // Aggregation
     Activity *activity;             // Aggregation
 
 protected:
-    void PrintComments() const
-    {
-        for (int i = 0; i < maxComments && comments[i] != nullptr; ++i)
-        {
-            comments[i]->Print();
-        }
-    }
-
-    void PrintText() const
-    {
-        cout << "\"" << text << "\"";
-    }
-
     Account *owner; // Aggregation
 
 public:
@@ -804,7 +819,7 @@ public:
 
     Post(ifstream &ifile, const string &ownerId, char **likersList, int &likesCount) : noOfLikers(0), owner(nullptr), activity(nullptr)
     {
-        ReadDataFromFile(ifile, ownerId, likersList, likesCount);
+        ReadPostsFromFile(ifile, ownerId, likersList, likesCount);
     }
 
     ~Post()
@@ -893,6 +908,19 @@ public:
         }
     }
 
+    void PrintComments() const
+    {
+        for (int i = 0; i < maxComments && comments[i] != nullptr; i++)
+        {
+            comments[i]->Print();
+        }
+    }
+
+    void PrintText() const
+    {
+        cout << "\"" << text << "\"";
+    }
+
     void Print(bool printDate = false, bool withComments = true) const
     {
         cout << "--- ";
@@ -936,8 +964,15 @@ public:
         }
     }
 
-    void ReadDataFromFile(ifstream &ifile, const string &ownerId, char **likersList, int &likesCount)
+    void ReadPostsFromFile(ifstream &ifile, const string &ownerId, char **likersList, int &likesCount)
     {
+        ifstream ifile("Posts.txt");
+        if (!ifile)
+        {
+            cout << "Error opening file.\n";
+            return;
+        }
+
         ifile >> id;
         shareDate.setDate(ifile.get(), ifile.get(), ifile.get());
         ifile.ignore();
@@ -1024,22 +1059,7 @@ private:
     Page **page; // Aggregation
     Post **post; // Aggregation
 
-    void ReadUsersFromFile(ifstream &, string ***, int *, string ***, int *);
-    void ReadPagesFromFile(ifstream &);
-    void ReadPostsFromFile(ifstream &);
-    void ReadCommentsFromFile(ifstream &);
-
-    void SetupUsersFriends(string ***, int *);
-    void SetupUsersLikedPages(string ***, int *);
-    User *SearchUserByID(const string &);
-    Page *SearchPageByID(const string &);
-    Post *SearchPostByID(const string &);
-
-    void DeleteUser(User *&);
-    void DeletePage(Page *&);
-    void DeletePostsOfAuthor(Account *);
-
-    SocialMediaApp();
+    // SocialMediaApp();
 
 public:
     SocialMediaApp(const SocialMediaApp &) = delete;
@@ -1902,11 +1922,12 @@ public:
             }
 
             default:
-
+            {
                 cout << "Invalid Command" << endl;
                 break;
 
                 commandNo++;
+            }
             }
         }
     }
